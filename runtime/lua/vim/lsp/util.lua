@@ -525,26 +525,57 @@ function M.make_floating_popup_options(width, height, opts)
   }
 end
 
+local function _add_tagstack(item)
+  local function is_new_item(item)
+    local stack = vim.fn.gettagstack()
+
+    -- Check if we're at the bottom of the tagstack.
+    if stack.curidx <= 1 then return true end
+
+    local top_item = stack.items[stack.curidx-1]
+
+    -- Check if the item at the top of the tagstack is exactly the
+    -- same as the one we want to push.
+    if top_item.tagname ~= item.tagname then return true end
+    for i, v in ipairs(top_item.from) do
+      if v ~= item.from[i] then return true end
+    end
+    return false
+  end
+
+  -- Check whether item is not already at the top of the tagstack.
+  if not is_new_item(item) then return end
+  local winid = vim.fn.win_getid()
+  local items = {item}
+  vim.fn.settagstack(winid, {items=items}, 't')
+end
+
 function M.jump_to_location(location)
   -- location may be Location or LocationLink
   local uri = location.uri or location.targetUri
   if uri == nil then return end
-  local bufnr = vim.uri_to_bufnr(uri)
-  -- Save position in jumplist
-  vim.cmd "normal! m'"
-
-  -- Push a new item into tagstack
-  local from = {vim.fn.bufnr('%'), vim.fn.line('.'), vim.fn.col('.'), 0}
-  local items = {{tagname=vim.fn.expand('<cword>'), from=from}}
-  vim.fn.settagstack(vim.fn.win_getid(), {items=items}, 't')
 
   --- Jump to new location (adjusting for UTF-16 encoding of characters)
+  local bufnr = vim.uri_to_bufnr(uri)
   api.nvim_set_current_buf(bufnr)
   api.nvim_buf_set_option(0, 'buflisted', true)
   local range = location.range or location.targetSelectionRange
   local row = range.start.line
   local col = get_line_byte_from_position(0, range.start)
+
+  local from = {vim.fn.bufnr('%'), vim.fn.line('.'), vim.fn.col('.'), 0}
+  local item = {tagname=vim.fn.expand('<cword>'), from=from}
+  -- This prevents the tagstack to be filled with items that provide
+  -- no motion when CTRL-T is pressed because they're both the source
+  -- and the destination.
+  local motionless = row+1 == from[2] and col+1 == from[3]
+  if not motionless then
+    _add_tagstack(item)
+  end
+
+  -- Jump to new location
   api.nvim_win_set_cursor(0, {row + 1, col})
+
   return true
 end
 

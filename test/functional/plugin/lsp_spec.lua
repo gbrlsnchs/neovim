@@ -1378,6 +1378,34 @@ describe('LSP', function()
       eq(4, pos.col)
       eq('å', exec_lua[[return vim.fn.expand('<cword>')]])
     end)
+
+    it('pushes to tagstack without repeating items', function()
+      local stack
+      -- Jump to a location.
+      jump(location(0, 9, 0, 9))
+      stack = exec_lua[[return vim.fn.gettagstack()]]
+      eq(1, stack.length)
+      eq({target_bufnr, 1, 1, 0}, stack.items[1].from)
+
+      -- Jump to same location. This should not be added to the tagstack.
+      jump(location(0, 9, 0, 9))
+      stack = exec_lua[[return vim.fn.gettagstack()]]
+      eq(1, stack.length)
+
+      -- Jump to a different location.
+      jump(location(0, 10, 0, 9))
+      stack = exec_lua[[return vim.fn.gettagstack()]]
+      eq(2, stack.length)
+      eq({target_bufnr, 1, 10, 0}, stack.items[2].from)
+    end)
+
+    it('prevents pushing to tagstack when motionless', function()
+      local stack
+      -- Jump to the same location the cursor is parked.
+      jump(location(0, 0, 0, 0))
+      stack = exec_lua[[return vim.fn.gettagstack()]]
+      eq(0, stack.length)
+    end)
   end)
 
   describe('lsp.util._make_floating_popup_size', function()

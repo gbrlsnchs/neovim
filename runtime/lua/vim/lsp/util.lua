@@ -423,6 +423,14 @@ function M.make_floating_popup_options(width, height, opts)
   }
 end
 
+local function is_same_item(item_a, item_b)
+  if item_a.tagname ~= item_b.tagname then return false end
+  for i, v in ipairs(item_a.from) do
+    if v ~= item_b.from[i] then return false end
+  end
+  return true
+end
+
 function M.jump_to_location(location)
   -- location may be Location or LocationLink
   local uri = location.uri or location.targetUri
@@ -432,8 +440,17 @@ function M.jump_to_location(location)
   vim.cmd "normal! m'"
 
   -- Push a new item into tagstack
+  local stack = vim.fn.gettagstack()
+  local tagname = vim.fn.expand('<cword>')
   local from = {vim.fn.bufnr('%'), vim.fn.line('.'), vim.fn.col('.'), 0}
-  local items = {{tagname=vim.fn.expand('<cword>'), from=from}}
+  local new_item = {tagname=tagname, from=from}
+  -- Check whether the tag is the same as the one in the top of the stack.
+  -- This prevents the tagstack to be sequentially filled with repeated tags.
+  if stack.curidx > 1 then
+    local top_item = stack.items[stack.curidx-1]
+    if is_same_item(top_item, new_item) then return false end
+  end
+  local items = {new_item}
   vim.fn.settagstack(vim.fn.win_getid(), {items=items}, 't')
 
   --- Jump to new location

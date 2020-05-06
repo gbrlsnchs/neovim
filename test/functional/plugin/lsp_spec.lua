@@ -1440,6 +1440,45 @@ describe('LSP', function()
       eq(4, pos.col)
       eq('å', exec_lua[[return vim.fn.expand('<cword>')]])
     end)
+
+    it('pushes to tagstack smartly', function()
+      local stack
+
+      -- Jump to line #1, col #1 (tagname is '1st') of buffer #2 (a different
+      -- buffer, since cursor was on buffer #1 at first).
+      jump(location(0, 0, 0, 0))
+      stack = exec_lua[[return vim.fn.gettagstack()]]
+      eq(1, stack.length)
+      -- Cursor came from line #1, col #1 of buffer #1.
+      eq({1, 1, 1, 0}, stack.items[1].from)
+
+      -- Jump to line #1, col #5 (tagname is 'line') of buffer #2.
+      jump(location(0, 4, 0, 4))
+      stack = exec_lua[[return vim.fn.gettagstack()]]
+      eq(2, stack.length)
+      -- Cursor came from line #1, col #1 of buffer #2 (same buffer, different
+      -- tagname and position).
+      eq({target_bufnr, 1, 1, 0}, stack.items[2].from)
+
+      -- Jump to same line, col, tagname and bufnr from where the cursor is
+      -- parked in. This won't push any new items to the tagstack.
+      jump(location(0, 4, 0, 4))
+      stack = exec_lua[[return vim.fn.gettagstack()]]
+      eq(2, stack.length)
+      -- Guarantee that the item at the top of the tagstack is still the last
+      -- one added.
+      eq({target_bufnr, 1, 1, 0}, stack.items[2].from)
+
+      -- Jump to same line, tagname and bufnr from where the cursor is parked
+      -- in, but coming from a different col. This will push a new item to the
+      -- tagstack.
+      jump(location(0, 5, 0, 5))
+      stack = exec_lua[[return vim.fn.gettagstack()]]
+      eq(3, stack.length)
+      -- Guarantee that the item at the top of the tagstack still equals the
+      -- previous one added.
+      eq({target_bufnr, 1, 5, 0}, stack.items[3].from)
+    end)
   end)
 
   describe('lsp.util._make_floating_popup_size', function()

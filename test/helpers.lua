@@ -70,7 +70,7 @@ local function dumplog(logfile, fn, ...)
   if status == false then
     logfile = logfile or os.getenv('NVIM_LOG_FILE') or '.nvimlog'
     local logtail = module.read_nvim_log(logfile)
-    error(string.format('%s\n%s', rv, logtail))
+    error(string.format('%s\n%s', rv.message, logtail))
   end
 end
 function module.eq(expected, actual, context, logfile)
